@@ -1,0 +1,85 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo
+Cargo.lock
+# Keep Cargo.lock for binary projects
+# Remove the above line if this is a library
+
+# IDE and Editor files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Profiling
+perf.data
+perf.data.old
+flamegraph.svg
+*.prof
+
+# Documentation
+/target/doc/
+/target/criterion/
+
+# Test coverage
+tarpaulin-report.html
+cobertura.xml
+lcov.info
+
+# Benchmarking
+/target/criterion/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+*.temp
+
+# Log files
+*.log
+logs/
+
+# Dependencies downloaded by cargo
+/vendor/
+
+# Build scripts artifacts
+/target/debug/
+/target/release/
+/target/wasm32-unknown-unknown/
+
+# RLS
+/target/rls/
+
+# Rustfmt
+**/*.rs.fmt
+
+# Clippy
+/target/clippy/
