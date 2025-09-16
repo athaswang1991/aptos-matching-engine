@@ -1,7 +1,7 @@
 use crate::error::{OrderBookError, Result};
 use crate::funding::FundingRate;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::collections::{HashMap, VecDeque};
 
@@ -47,10 +47,12 @@ impl OraclePrice {
     pub fn update(&mut self, spot_price: Decimal) -> Result<()> {
         let noise = (rand::random::<f64>() - 0.5) * 0.001;
         let noise_decimal = Decimal::try_from(noise)
-            .map_err(|e| OrderBookError::OverflowError(format!("Decimal conversion: {}", e)))?;
+            .map_err(|e| OrderBookError::OverflowError(format!("Decimal conversion: {e}")))?;
 
         self.price = spot_price * (Decimal::ONE + noise_decimal);
-        self.timestamp = self.timestamp.checked_add(1)
+        self.timestamp = self
+            .timestamp
+            .checked_add(1)
             .ok_or_else(|| OrderBookError::OverflowError("Timestamp overflow".to_string()))?;
 
         self.price_history.push_back((self.timestamp, self.price));
@@ -66,7 +68,8 @@ impl OraclePrice {
             return self.price;
         }
 
-        let samples: Vec<Decimal> = self.price_history
+        let samples: Vec<Decimal> = self
+            .price_history
             .iter()
             .rev()
             .take(lookback_periods)
@@ -107,13 +110,22 @@ impl MarkPrice {
         }
     }
 
-    pub fn calculate(&mut self, best_bid: Decimal, best_ask: Decimal, index_price: Decimal) -> Result<()> {
+    pub fn calculate(
+        &mut self,
+        best_bid: Decimal,
+        best_ask: Decimal,
+        index_price: Decimal,
+    ) -> Result<()> {
         if best_bid <= Decimal::ZERO || best_ask <= Decimal::ZERO {
-            return Err(OrderBookError::InvalidPrice("Invalid bid/ask prices".to_string()));
+            return Err(OrderBookError::InvalidPrice(
+                "Invalid bid/ask prices".to_string(),
+            ));
         }
 
         if best_bid > best_ask {
-            return Err(OrderBookError::MarketManipulation("Crossed market detected".to_string()));
+            return Err(OrderBookError::MarketManipulation(
+                "Crossed market detected".to_string(),
+            ));
         }
 
         self.fair_price = (best_bid + best_ask) / dec!(2);
@@ -129,7 +141,8 @@ impl MarkPrice {
         self.price = (impact_mid + index_price * dec!(2)) / dec!(3);
 
         let timestamp = self.price_samples.len() as u64;
-        self.price_samples.push_back((timestamp, self.price, index_price));
+        self.price_samples
+            .push_back((timestamp, self.price, index_price));
         if self.price_samples.len() > 100 {
             self.price_samples.pop_front();
         }
@@ -166,7 +179,9 @@ impl LiquidationEngine {
 
     pub fn calculate_liquidation_price(&self, position: &Position) -> Result<Decimal> {
         if position.leverage <= Decimal::ZERO {
-            return Err(OrderBookError::InvalidLeverage(position.leverage.to_f64().unwrap_or(0.0)));
+            return Err(OrderBookError::InvalidLeverage(
+                position.leverage.to_f64().unwrap_or(0.0),
+            ));
         }
 
         let margin_ratio = self.maintenance_margin + self.liquidation_fee;
@@ -185,16 +200,14 @@ impl LiquidationEngine {
 
     pub fn calculate_bankruptcy_price(&self, position: &Position) -> Result<Decimal> {
         if position.size == Decimal::ZERO {
-            return Err(OrderBookError::InvalidQuantity("Position size is zero".to_string()));
+            return Err(OrderBookError::InvalidQuantity(
+                "Position size is zero".to_string(),
+            ));
         }
 
         let bankruptcy_price = match position.side {
-            PositionSide::Long => {
-                position.entry_price - (position.margin / position.size)
-            }
-            PositionSide::Short => {
-                position.entry_price + (position.margin / position.size)
-            }
+            PositionSide::Long => position.entry_price - (position.margin / position.size),
+            PositionSide::Short => position.entry_price + (position.margin / position.size),
         };
 
         Ok(bankruptcy_price.max(Decimal::ZERO))
@@ -215,10 +228,16 @@ impl LiquidationEngine {
         }
     }
 
-    pub fn calculate_margin_ratio(&self, position: &Position, mark_price: Decimal) -> Result<Decimal> {
+    pub fn calculate_margin_ratio(
+        &self,
+        position: &Position,
+        mark_price: Decimal,
+    ) -> Result<Decimal> {
         let position_value = mark_price * position.size;
         if position_value == Decimal::ZERO {
-            return Err(OrderBookError::InvalidQuantity("Position value is zero".to_string()));
+            return Err(OrderBookError::InvalidQuantity(
+                "Position value is zero".to_string(),
+            ));
         }
 
         let pnl = Self::calculate_pnl(position, mark_price);
@@ -282,11 +301,12 @@ impl PositionManager {
 
         let leverage = (entry_price * size) / margin;
         if leverage > self.max_leverage {
-            return Err(OrderBookError::InvalidLeverage(leverage.to_f64().unwrap_or(0.0)));
+            return Err(OrderBookError::InvalidLeverage(
+                leverage.to_f64().unwrap_or(0.0),
+            ));
         }
 
-        let required_margin = (entry_price * size * liquidation_engine.initial_margin)
-            .round_dp(2);
+        let required_margin = (entry_price * size * liquidation_engine.initial_margin).round_dp(2);
 
         if margin < required_margin {
             return Err(OrderBookError::InsufficientMargin {
@@ -320,19 +340,27 @@ impl PositionManager {
     }
 
     pub fn close_position(&mut self, trader_id: u64) -> Result<Position> {
-        let position = self.positions.remove(&trader_id)
+        let position = self
+            .positions
+            .remove(&trader_id)
             .ok_or(OrderBookError::PositionNotFound { trader_id })?;
 
         match position.side {
             PositionSide::Long => {
-                self.total_long_interest = self.total_long_interest
+                self.total_long_interest = self
+                    .total_long_interest
                     .checked_sub(position.size)
-                    .ok_or_else(|| OrderBookError::OverflowError("Long interest underflow".to_string()))?;
+                    .ok_or_else(|| {
+                        OrderBookError::OverflowError("Long interest underflow".to_string())
+                    })?;
             }
             PositionSide::Short => {
-                self.total_short_interest = self.total_short_interest
+                self.total_short_interest = self
+                    .total_short_interest
                     .checked_sub(position.size)
-                    .ok_or_else(|| OrderBookError::OverflowError("Short interest underflow".to_string()))?;
+                    .ok_or_else(|| {
+                        OrderBookError::OverflowError("Short interest underflow".to_string())
+                    })?;
             }
         }
 
@@ -361,10 +389,7 @@ impl PositionManager {
         Ok(liquidated)
     }
 
-    pub fn apply_funding(
-        &mut self,
-        funding_rate: &FundingRate,
-    ) -> HashMap<u64, Decimal> {
+    pub fn apply_funding(&mut self, funding_rate: &FundingRate) -> HashMap<u64, Decimal> {
         let mut funding_payments = HashMap::new();
 
         for (trader_id, position) in self.positions.iter_mut() {
@@ -432,18 +457,25 @@ impl InsuranceFund {
     }
 
     pub fn add_contribution(&mut self, amount: Decimal) -> Result<()> {
-        self.balance = self.balance.checked_add(amount)
+        self.balance = self
+            .balance
+            .checked_add(amount)
             .ok_or_else(|| OrderBookError::OverflowError("Insurance fund overflow".to_string()))?;
-        self.contributions = self.contributions.checked_add(amount)
+        self.contributions = self
+            .contributions
+            .checked_add(amount)
             .ok_or_else(|| OrderBookError::OverflowError("Contributions overflow".to_string()))?;
         Ok(())
     }
 
     pub fn process_payout(&mut self, amount: Decimal) -> Result<bool> {
         if self.balance >= amount {
-            self.balance = self.balance.checked_sub(amount)
-                .ok_or_else(|| OrderBookError::OverflowError("Insurance fund underflow".to_string()))?;
-            self.payouts = self.payouts.checked_add(amount)
+            self.balance = self.balance.checked_sub(amount).ok_or_else(|| {
+                OrderBookError::OverflowError("Insurance fund underflow".to_string())
+            })?;
+            self.payouts = self
+                .payouts
+                .checked_add(amount)
                 .ok_or_else(|| OrderBookError::OverflowError("Payouts overflow".to_string()))?;
             Ok(true)
         } else {

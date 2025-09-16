@@ -1,4 +1,5 @@
 use imlob::{OrderBook, Side};
+use rust_decimal::Decimal;
 use std::time::Instant;
 
 fn benchmark_place_orders(n: usize) {
@@ -8,8 +9,8 @@ fn benchmark_place_orders(n: usize) {
     // Place alternating buy and sell orders
     for i in 0..n {
         let side = if i % 2 == 0 { Side::Buy } else { Side::Sell };
-        let price = 1000 + (i % 100) as u64;
-        book.place_order(side, price, 100, i as u64);
+        let price = Decimal::from(1000 + (i % 100));
+        let _ = book.place_order(side, price, Decimal::from(100), i as u64);
     }
 
     let elapsed = start.elapsed();
@@ -26,14 +27,19 @@ fn benchmark_matching(n: usize) {
 
     // Fill book with buy orders
     for i in 0..n / 2 {
-        book.place_order(Side::Buy, 100, 10, i as u64);
+        let _ = book.place_order(Side::Buy, Decimal::from(100), Decimal::from(10), i as u64);
     }
 
     let start = Instant::now();
 
     // Match with sell orders
     for i in 0..n / 2 {
-        book.place_order(Side::Sell, 100, 10, (n / 2 + i) as u64);
+        let _ = book.place_order(
+            Side::Sell,
+            Decimal::from(100),
+            Decimal::from(10),
+            (n / 2 + i) as u64,
+        );
     }
 
     let elapsed = start.elapsed();
@@ -50,8 +56,13 @@ fn benchmark_best_price_queries(n: usize) {
 
     // Fill book with orders at different prices
     for i in 0..100 {
-        book.place_order(Side::Buy, 900 + i, 100, i);
-        book.place_order(Side::Sell, 1100 + i, 100, 100 + i);
+        let _ = book.place_order(Side::Buy, Decimal::from(900 + i), Decimal::from(100), i);
+        let _ = book.place_order(
+            Side::Sell,
+            Decimal::from(1100 + i),
+            Decimal::from(100),
+            100 + i,
+        );
     }
 
     let start = Instant::now();
@@ -75,19 +86,29 @@ fn benchmark_cross_spread_matching() {
 
     // Create deep book
     for i in 0..1000 {
-        book.place_order(Side::Buy, 990 - i / 10, 100, i);
-        book.place_order(Side::Sell, 1010 + i / 10, 100, 1000 + i);
+        let _ = book.place_order(
+            Side::Buy,
+            Decimal::from(990 - i / 10),
+            Decimal::from(100),
+            i,
+        );
+        let _ = book.place_order(
+            Side::Sell,
+            Decimal::from(1010 + i / 10),
+            Decimal::from(100),
+            1000 + i,
+        );
     }
 
     let start = Instant::now();
 
     // Large aggressive order that crosses the spread
-    let trades = book.place_order(Side::Sell, 900, 50000, 10000);
+    let trades = book.place_order(Side::Sell, Decimal::from(900), Decimal::from(50000), 10000);
 
     let elapsed = start.elapsed();
     println!(
         "Cross-spread matching: {} trades in {:.2}ms",
-        trades.len(),
+        trades.unwrap().len(),
         elapsed.as_secs_f64() * 1000.0
     );
 }

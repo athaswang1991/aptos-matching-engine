@@ -21,16 +21,14 @@ fn main() {
         let buy_price = dec!(995) - Decimal::from(i);
         let sell_price = dec!(1005) + Decimal::from(i);
 
-        book.place_order(Side::Buy, buy_price, dec!(100), order_id).unwrap();
-        println!(
-            "  → place_order(Buy, {buy_price}, 100, #{order_id}) = []"
-        );
+        book.place_order(Side::Buy, buy_price, dec!(100), order_id)
+            .unwrap();
+        println!("  → place_order(Buy, {buy_price}, 100, #{order_id}) = []");
         order_id += 1;
 
-        book.place_order(Side::Sell, sell_price, dec!(100), order_id).unwrap();
-        println!(
-            "  → place_order(Sell, {sell_price}, 100, #{order_id}) = []"
-        );
+        book.place_order(Side::Sell, sell_price, dec!(100), order_id)
+            .unwrap();
+        println!("  → place_order(Sell, {sell_price}, 100, #{order_id}) = []");
         order_id += 1;
     }
 
@@ -55,30 +53,28 @@ fn main() {
             match side {
                 Side::Buy => (
                     dec!(1000) + Decimal::from(rng.gen_range(5..15)),
-                    Decimal::from(rng.gen_range(50..300))
+                    Decimal::from(rng.gen_range(50..300)),
                 ),
                 Side::Sell => (
                     dec!(1000) - Decimal::from(rng.gen_range(5..15)),
-                    Decimal::from(rng.gen_range(50..300))
+                    Decimal::from(rng.gen_range(50..300)),
                 ),
             }
         } else {
             match side {
                 Side::Buy => (
                     dec!(995) - Decimal::from(rng.gen_range(0..5)),
-                    Decimal::from(rng.gen_range(50..150))
+                    Decimal::from(rng.gen_range(50..150)),
                 ),
                 Side::Sell => (
                     dec!(1005) + Decimal::from(rng.gen_range(0..5)),
-                    Decimal::from(rng.gen_range(50..150))
+                    Decimal::from(rng.gen_range(50..150)),
                 ),
             }
         };
 
         println!("\n🔹 API CALL:");
-        println!(
-            "  place_order({side:?}, {price}, {quantity}, #{order_id})"
-        );
+        println!("  place_order({side:?}, {price}, {quantity}, #{order_id})");
 
         let trades = book.place_order(side, price, quantity, order_id).unwrap();
 

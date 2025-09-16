@@ -5,7 +5,7 @@ pub mod perps;
 use error::{OrderBookError, Result};
 use rust_decimal::Decimal;
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Side {
@@ -46,11 +46,9 @@ impl Ord for BuyPrice {
 pub struct OrderBook {
     buy_levels: BTreeMap<BuyPrice, VecDeque<Order>>,
     sell_levels: BTreeMap<Decimal, VecDeque<Order>>,
-    orders_by_id: HashMap<u64, (Side, Decimal)>,
     sequence: u64,
     min_price: Decimal,
     max_price: Decimal,
-    min_quantity: Decimal,
     max_quantity: Decimal,
 }
 
@@ -60,30 +58,44 @@ impl OrderBook {
         Self {
             buy_levels: BTreeMap::new(),
             sell_levels: BTreeMap::new(),
-            orders_by_id: HashMap::new(),
             sequence: 0,
             min_price: Decimal::from(1),
             max_price: Decimal::from(1_000_000),
-            min_quantity: Decimal::from(1),
             max_quantity: Decimal::from(1_000_000),
         }
     }
 
-    pub fn place_order(&mut self, side: Side, price: Decimal, quantity: Decimal, id: u64) -> Result<Vec<Trade>> {
+    pub fn place_order(
+        &mut self,
+        side: Side,
+        price: Decimal,
+        quantity: Decimal,
+        id: u64,
+    ) -> Result<Vec<Trade>> {
         if quantity <= Decimal::ZERO {
-            return Err(OrderBookError::InvalidQuantity("Quantity must be positive".to_string()));
+            return Err(OrderBookError::InvalidQuantity(
+                "Quantity must be positive".to_string(),
+            ));
         }
 
         if quantity > self.max_quantity {
-            return Err(OrderBookError::InvalidQuantity(format!("Quantity exceeds maximum: {}", self.max_quantity)));
+            return Err(OrderBookError::InvalidQuantity(format!(
+                "Quantity exceeds maximum: {}",
+                self.max_quantity
+            )));
         }
 
         if price < self.min_price || price > self.max_price {
-            return Err(OrderBookError::InvalidPrice(format!("Price must be between {} and {}", self.min_price, self.max_price)));
+            return Err(OrderBookError::InvalidPrice(format!(
+                "Price must be between {} and {}",
+                self.min_price, self.max_price
+            )));
         }
 
         let timestamp = self.sequence;
-        self.sequence = self.sequence.checked_add(1)
+        self.sequence = self
+            .sequence
+            .checked_add(1)
             .ok_or_else(|| OrderBookError::OverflowError("Sequence overflow".to_string()))?;
 
         match side {
@@ -109,7 +121,8 @@ impl OrderBook {
                 break;
             }
 
-            remaining = Self::match_at_level(level_orders, remaining, level_price, id, &mut trades)?;
+            remaining =
+                Self::match_at_level(level_orders, remaining, level_price, id, &mut trades)?;
 
             if level_orders.is_empty() {
                 exhausted_levels.push(level_price);
@@ -125,7 +138,6 @@ impl OrderBook {
         }
 
         if remaining > Decimal::ZERO {
-            self.orders_by_id.insert(id, (Side::Buy, price));
             self.buy_levels
                 .entry(BuyPrice(price))
                 .or_default()
@@ -156,7 +168,8 @@ impl OrderBook {
                 break;
             }
 
-            remaining = Self::match_at_level(level_orders, remaining, level_price, id, &mut trades)?;
+            remaining =
+                Self::match_at_level(level_orders, remaining, level_price, id, &mut trades)?;
 
             if level_orders.is_empty() {
                 exhausted_levels.push(BuyPrice(level_price));
@@ -172,7 +185,6 @@ impl OrderBook {
         }
 
         if remaining > Decimal::ZERO {
-            self.orders_by_id.insert(id, (Side::Sell, price));
             self.sell_levels.entry(price).or_default().push_back(Order {
                 id,
                 quantity: remaining,
@@ -202,9 +214,12 @@ impl OrderBook {
                 taker_id,
             });
 
-            remaining = remaining.checked_sub(fill_quantity)
+            remaining = remaining
+                .checked_sub(fill_quantity)
                 .ok_or_else(|| OrderBookError::OverflowError("Quantity underflow".to_string()))?;
-            maker_order.quantity = maker_order.quantity.checked_sub(fill_quantity)
+            maker_order.quantity = maker_order
+                .quantity
+                .checked_sub(fill_quantity)
                 .ok_or_else(|| OrderBookError::OverflowError("Quantity underflow".to_string()))?;
 
             if maker_order.quantity == Decimal::ZERO {
@@ -231,32 +246,6 @@ impl OrderBook {
             let total_quantity: Decimal = orders.iter().map(|o| o.quantity).sum();
             (*price, total_quantity)
         })
-    }
-
-    pub fn cancel_order(&mut self, order_id: u64) -> Result<()> {
-        let (side, price) = self.orders_by_id.remove(&order_id)
-            .ok_or(OrderBookError::OrderNotFound { id: order_id })?;
-
-        match side {
-            Side::Buy => {
-                if let Some(level_orders) = self.buy_levels.get_mut(&BuyPrice(price)) {
-                    level_orders.retain(|o| o.id != order_id);
-                    if level_orders.is_empty() {
-                        self.buy_levels.remove(&BuyPrice(price));
-                    }
-                }
-            }
-            Side::Sell => {
-                if let Some(level_orders) = self.sell_levels.get_mut(&price) {
-                    level_orders.retain(|o| o.id != order_id);
-                    if level_orders.is_empty() {
-                        self.sell_levels.remove(&price);
-                    }
-                }
-            }
-        }
-
-        Ok(())
     }
 
     #[inline]
@@ -339,7 +328,9 @@ mod tests {
     #[test]
     fn test_place_sell_order_no_match() {
         let mut book = OrderBook::new();
-        let trades = book.place_order(Side::Sell, dec!(100), dec!(10), 1).unwrap();
+        let trades = book
+            .place_order(Side::Sell, dec!(100), dec!(10), 1)
+            .unwrap();
         assert!(trades.is_empty());
         assert_eq!(book.best_buy(), None);
         assert_eq!(book.best_sell(), Some((dec!(100), dec!(10))));
@@ -349,7 +340,9 @@ mod tests {
     fn test_full_match() {
         let mut book = OrderBook::new();
         book.place_order(Side::Buy, dec!(100), dec!(10), 1).unwrap();
-        let trades = book.place_order(Side::Sell, dec!(100), dec!(10), 2).unwrap();
+        let trades = book
+            .place_order(Side::Sell, dec!(100), dec!(10), 2)
+            .unwrap();
 
         assert_eq!(trades.len(), 1);
         assert_eq!(
@@ -409,7 +402,9 @@ mod tests {
 
         assert_eq!(book.best_buy(), Some((dec!(100), dec!(30))));
 
-        let trades = book.place_order(Side::Sell, dec!(100), dec!(25), 4).unwrap();
+        let trades = book
+            .place_order(Side::Sell, dec!(100), dec!(25), 4)
+            .unwrap();
 
         assert_eq!(trades.len(), 3);
         assert_eq!(trades[0].maker_id, 1);
@@ -426,7 +421,9 @@ mod tests {
     fn test_remainder_added_to_book() {
         let mut book = OrderBook::new();
         book.place_order(Side::Buy, dec!(100), dec!(10), 1).unwrap();
-        let trades = book.place_order(Side::Sell, dec!(101), dec!(20), 2).unwrap();
+        let trades = book
+            .place_order(Side::Sell, dec!(101), dec!(20), 2)
+            .unwrap();
 
         assert!(trades.is_empty());
         assert_eq!(book.best_buy(), Some((dec!(100), dec!(10))));
@@ -436,9 +433,12 @@ mod tests {
     #[test]
     fn test_aggressive_buy_matches_multiple_sells() {
         let mut book = OrderBook::new();
-        book.place_order(Side::Sell, dec!(100), dec!(10), 1).unwrap();
-        book.place_order(Side::Sell, dec!(101), dec!(10), 2).unwrap();
-        book.place_order(Side::Sell, dec!(102), dec!(10), 3).unwrap();
+        book.place_order(Side::Sell, dec!(100), dec!(10), 1)
+            .unwrap();
+        book.place_order(Side::Sell, dec!(101), dec!(10), 2)
+            .unwrap();
+        book.place_order(Side::Sell, dec!(102), dec!(10), 3)
+            .unwrap();
 
         assert_eq!(book.best_sell(), Some((dec!(100), dec!(10))));
 
@@ -466,7 +466,8 @@ mod tests {
     fn test_clear_book() {
         let mut book = OrderBook::new();
         book.place_order(Side::Buy, dec!(100), dec!(10), 1).unwrap();
-        book.place_order(Side::Sell, dec!(101), dec!(10), 2).unwrap();
+        book.place_order(Side::Sell, dec!(101), dec!(10), 2)
+            .unwrap();
 
         assert!(!book.is_empty());
         book.clear();
@@ -478,7 +479,9 @@ mod tests {
         let mut book = OrderBook::new();
         book.place_order(Side::Buy, dec!(102), dec!(10), 1).unwrap();
 
-        let trades = book.place_order(Side::Sell, dec!(100), dec!(10), 2).unwrap();
+        let trades = book
+            .place_order(Side::Sell, dec!(100), dec!(10), 2)
+            .unwrap();
 
         assert_eq!(trades.len(), 1);
         assert_eq!(trades[0].price, dec!(102));
@@ -489,27 +492,15 @@ mod tests {
     #[test]
     fn test_decimal_precision() {
         let mut book = OrderBook::new();
-        book.place_order(Side::Buy, dec!(100.50), dec!(10.25), 1).unwrap();
-        let trades = book.place_order(Side::Sell, dec!(100.25), dec!(5.125), 2).unwrap();
+        book.place_order(Side::Buy, dec!(100.50), dec!(10.25), 1)
+            .unwrap();
+        let trades = book
+            .place_order(Side::Sell, dec!(100.25), dec!(5.125), 2)
+            .unwrap();
 
         assert_eq!(trades.len(), 1);
         assert_eq!(trades[0].price, dec!(100.50));
         assert_eq!(trades[0].quantity, dec!(5.125));
         assert_eq!(book.best_buy(), Some((dec!(100.50), dec!(5.125))));
-    }
-
-    #[test]
-    fn test_cancel_order() {
-        let mut book = OrderBook::new();
-        book.place_order(Side::Buy, dec!(100), dec!(10), 1).unwrap();
-        book.place_order(Side::Buy, dec!(100), dec!(20), 2).unwrap();
-
-        assert_eq!(book.best_buy(), Some((dec!(100), dec!(30))));
-
-        book.cancel_order(1).unwrap();
-        assert_eq!(book.best_buy(), Some((dec!(100), dec!(20))));
-
-        book.cancel_order(2).unwrap();
-        assert!(book.is_empty());
     }
 }

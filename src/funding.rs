@@ -23,7 +23,6 @@ pub struct FundingRate {
     pub long_open_interest: Decimal,
     pub short_open_interest: Decimal,
     price_samples: VecDeque<PriceSample>,
-    sample_interval: u64,
     max_samples: usize,
 }
 
@@ -43,7 +42,6 @@ impl FundingRate {
             long_open_interest: Decimal::ZERO,
             short_open_interest: Decimal::ZERO,
             price_samples: VecDeque::new(),
-            sample_interval: 60,
             max_samples: 480,
         }
     }
@@ -67,11 +65,7 @@ impl FundingRate {
             return Ok(Decimal::ZERO);
         }
 
-        let current_time = self
-            .price_samples
-            .back()
-            .map(|s| s.timestamp)
-            .unwrap_or(0);
+        let current_time = self.price_samples.back().map(|s| s.timestamp).unwrap_or(0);
         let start_time = current_time.saturating_sub(lookback_seconds);
 
         let relevant_samples: Vec<&PriceSample> = self
@@ -142,11 +136,7 @@ impl FundingRate {
         timestamp >= self.next_funding_time
     }
 
-    pub fn calculate_funding_payment(
-        &self,
-        position_size: Decimal,
-        is_long: bool,
-    ) -> Decimal {
+    pub fn calculate_funding_payment(&self, position_size: Decimal, is_long: bool) -> Decimal {
         let payment = position_size * self.current_rate;
         if is_long {
             -payment

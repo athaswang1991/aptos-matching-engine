@@ -1,10 +1,10 @@
-use imlob::perps::*;
 use imlob::funding::FundingRate;
+use imlob::perps::*;
 use imlob::{OrderBook, Side};
+use rand::Rng;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use rust_decimal::prelude::ToPrimitive;
-use rand::Rng;
 use std::{thread, time::Duration};
 
 fn main() {
@@ -30,19 +30,27 @@ fn main() {
     println!("  Max Leverage:        {}x", position_manager.max_leverage);
     println!(
         "  Initial Margin:      {}%",
-        (liquidation_engine.initial_margin * dec!(100)).to_f64().unwrap_or(0.0)
+        (liquidation_engine.initial_margin * dec!(100))
+            .to_f64()
+            .unwrap_or(0.0)
     );
     println!(
         "  Maintenance Margin:  {}%",
-        (liquidation_engine.maintenance_margin * dec!(100)).to_f64().unwrap_or(0.0)
+        (liquidation_engine.maintenance_margin * dec!(100))
+            .to_f64()
+            .unwrap_or(0.0)
     );
     println!(
         "  Maker Fee:           {}%",
-        (fee_structure.maker_fee * dec!(100)).to_f64().unwrap_or(0.0)
+        (fee_structure.maker_fee * dec!(100))
+            .to_f64()
+            .unwrap_or(0.0)
     );
     println!(
         "  Taker Fee:           {}%",
-        (fee_structure.taker_fee * dec!(100)).to_f64().unwrap_or(0.0)
+        (fee_structure.taker_fee * dec!(100))
+            .to_f64()
+            .unwrap_or(0.0)
     );
     println!("  Insurance Fund:      ${}\n", insurance_fund.balance);
 
@@ -50,17 +58,19 @@ fn main() {
     for i in 0..10 {
         let buy_price = dec!(995) - Decimal::from(i);
         let sell_price = dec!(1005) + Decimal::from(i);
-        order_book.place_order(Side::Buy, buy_price, dec!(1000), order_id).unwrap();
+        order_book
+            .place_order(Side::Buy, buy_price, dec!(1000), order_id)
+            .unwrap();
         order_id += 1;
-        order_book.place_order(Side::Sell, sell_price, dec!(1000), order_id).unwrap();
+        order_book
+            .place_order(Side::Sell, sell_price, dec!(1000), order_id)
+            .unwrap();
         order_id += 1;
     }
 
     for round in 1..=15 {
         println!("\n╔═══════════════════════════════════════════════════════════╗");
-        println!(
-            "║                      ROUND {round}                            ║"
-        );
+        println!("║                      ROUND {round}                            ║");
         println!("╚═══════════════════════════════════════════════════════════╝");
 
         let spot_movement = Decimal::try_from(rng.gen_range(-5.0..5.0)).unwrap_or(Decimal::ZERO);
@@ -71,10 +81,14 @@ fn main() {
             (Some((bid, _)), Some((ask, _))) => (bid, ask),
             _ => (oracle.price - dec!(1), oracle.price + dec!(1)),
         };
-        mark_price.calculate(best_bid, best_ask, oracle.price).unwrap();
+        mark_price
+            .calculate(best_bid, best_ask, oracle.price)
+            .unwrap();
 
         funding_rate.add_price_sample(mark_price.price, oracle.price, round as u64 * 3600);
-        let current_funding = funding_rate.calculate_funding_rate(round as u64 * 3600).unwrap();
+        let current_funding = funding_rate
+            .calculate_funding_rate(round as u64 * 3600)
+            .unwrap();
         funding_rate.update_open_interest(
             position_manager.total_long_interest,
             position_manager.total_short_interest,
@@ -84,7 +98,7 @@ fn main() {
         println!("  Oracle/Index Price:  ${:.2}", oracle.price);
         println!("  Mark Price:          ${:.2}", mark_price.price);
         println!("  Fair Price:          ${:.2}", mark_price.fair_price);
-        println!("  Best Bid/Ask:        ${:.2} / ${:.2}", best_bid, best_ask);
+        println!("  Best Bid/Ask:        ${best_bid:.2} / ${best_ask:.2}");
         println!("  Spread:              ${:.2}", best_ask - best_bid);
 
         println!("\n💰 Funding Rate:");
@@ -94,7 +108,9 @@ fn main() {
         );
         println!(
             "  Premium Index:       {:.4}%",
-            (funding_rate.premium_index * dec!(100)).to_f64().unwrap_or(0.0)
+            (funding_rate.premium_index * dec!(100))
+                .to_f64()
+                .unwrap_or(0.0)
         );
         if current_funding > Decimal::ZERO {
             println!("  Direction:           Longs pay Shorts ↗️");
@@ -128,10 +144,10 @@ fn main() {
                     println!("\n🆕 New Position Opened:");
                     println!("  Trader #{trader_id}:");
                     println!("  Side:                {side:?}");
-                    println!("  Size:                {} contracts", size);
-                    println!("  Leverage:            {:.1}x", leverage);
+                    println!("  Size:                {size} contracts");
+                    println!("  Leverage:            {leverage:.1}x");
                     println!("  Entry Price:         ${:.2}", position.entry_price);
-                    println!("  Margin:              ${}", margin);
+                    println!("  Margin:              ${margin}");
                     println!("  Liquidation Price:   ${:.2}", position.liquidation_price);
 
                     let notional = mark_price.price * size;
@@ -141,7 +157,7 @@ fn main() {
                     trader_id += 1;
                 }
                 Err(e) => {
-                    println!("\n⚠️  Position opening failed: {}", e);
+                    println!("\n⚠️  Position opening failed: {e}");
                 }
             }
         }
@@ -157,12 +173,14 @@ fn main() {
                         );
 
                         let liquidation_fee_amount = dec!(1000);
-                        insurance_fund.add_contribution(liquidation_fee_amount).unwrap();
+                        insurance_fund
+                            .add_contribution(liquidation_fee_amount)
+                            .unwrap();
                     }
                 }
             }
             Err(e) => {
-                println!("\n⚠️  Error updating positions: {}", e);
+                println!("\n⚠️  Error updating positions: {e}");
             }
         }
 
@@ -175,7 +193,8 @@ fn main() {
             "  Total Short:         {} contracts",
             position_manager.total_short_interest
         );
-        let imbalance = position_manager.total_long_interest - position_manager.total_short_interest;
+        let imbalance =
+            position_manager.total_long_interest - position_manager.total_short_interest;
         let total_oi = position_manager.total_long_interest + position_manager.total_short_interest;
         if total_oi > Decimal::ZERO {
             let imbalance_pct = (imbalance / total_oi) * dec!(100);
@@ -199,7 +218,9 @@ fn main() {
 
             for (i, pos) in positions.iter().take(3).enumerate() {
                 let pnl = LiquidationEngine::calculate_pnl(pos, mark_price.price);
-                let margin_ratio = liquidation_engine.calculate_margin_ratio(pos, mark_price.price).unwrap_or(Decimal::ZERO);
+                let margin_ratio = liquidation_engine
+                    .calculate_margin_ratio(pos, mark_price.price)
+                    .unwrap_or(Decimal::ZERO);
                 let health = if margin_ratio > dec!(0.02) {
                     "🟢"
                 } else if margin_ratio > dec!(0.01) {

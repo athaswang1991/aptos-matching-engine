@@ -39,14 +39,15 @@ cargo bench
 
 ### API
 ```rust
-place_order(side: Side, price: u64, quantity: u64, id: u64) -> Vec<Trade>
-best_buy() -> Option<(price, total_quantity)>
-best_sell() -> Option<(price, total_quantity)>
+place_order(side: Side, price: Decimal, quantity: Decimal, id: u64) -> Result<Vec<Trade>>
+best_buy() -> Option<(Decimal, Decimal)>
+best_sell() -> Option<(Decimal, Decimal)>
 ```
 
 ### Performance
-- **21M+ orders/second** throughput
-- **39M+ trades/second** matching
+- **7M+ orders/second** throughput (with Decimal precision)
+- **11M+ matches/second** matching
+- **181M+ queries/second** for best price lookups
 - **Sub-microsecond** execution latency
 
 ### CLOB Visualization (TUI)
@@ -185,22 +186,13 @@ Comprehensive test coverage:
 - **Fair order matching without MEV**
 - **Trading simulations and backtesting**
 
-## Why CLOB for Perps DEX?
-
-Unlike AMM-based perpetual DEXs, a CLOB-based approach provides:
-
-1. **True Price Discovery** - Prices set by limit orders, not formulas
-2. **No Impermanent Loss** - No LP positions, just order matching
-3. **Professional Trading** - Limit orders, stop losses, iceberg orders
-4. **Capital Efficiency** - No locked liquidity in pools
-5. **Transparent Execution** - See exact depth and your queue position
-6. **Fair Matching** - Price-time priority, no front-running
-
 ## Dependencies
 
+- `rust_decimal` - High-precision decimal arithmetic for financial calculations
 - `ratatui` - Terminal UI for CLOB visualization
 - `crossterm` - Cross-platform terminal control
 - `rand` - Market simulation
+- `thiserror` - Error handling
 
 ## License
 
