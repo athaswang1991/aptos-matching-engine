@@ -8,6 +8,9 @@ default-run = "imlob"
 crossterm = "0.27"
 ratatui = { version = "0.26", features = ["all-widgets"] }
 rand = "0.8"
+rust_decimal = "1.33"
+rust_decimal_macros = "1.33"
+thiserror = "1.0"
 
 [[bench]]
 name = "orderbook_bench"
