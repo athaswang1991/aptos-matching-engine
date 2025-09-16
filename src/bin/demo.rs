@@ -1,5 +1,7 @@
 use imlob::{OrderBook, Side};
 use rand::Rng;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use std::{thread, time::Duration};
 
 fn main() {
@@ -11,21 +13,21 @@ fn main() {
     let mut rng = rand::thread_rng();
     let mut order_id = 1u64;
     let mut total_trades = 0;
-    let mut total_volume = 0u64;
+    let mut total_volume = Decimal::ZERO;
 
     println!("🔧 Initial Setup - Adding liquidity to the book...\n");
 
     for i in 0..5 {
-        let buy_price = 995 - i;
-        let sell_price = 1005 + i;
+        let buy_price = dec!(995) - Decimal::from(i);
+        let sell_price = dec!(1005) + Decimal::from(i);
 
-        book.place_order(Side::Buy, buy_price, 100, order_id);
+        book.place_order(Side::Buy, buy_price, dec!(100), order_id).unwrap();
         println!(
             "  → place_order(Buy, {buy_price}, 100, #{order_id}) = []"
         );
         order_id += 1;
 
-        book.place_order(Side::Sell, sell_price, 100, order_id);
+        book.place_order(Side::Sell, sell_price, dec!(100), order_id).unwrap();
         println!(
             "  → place_order(Sell, {sell_price}, 100, #{order_id}) = []"
         );
@@ -51,13 +53,25 @@ fn main() {
 
         let (price, quantity) = if is_aggressive {
             match side {
-                Side::Buy => (1000 + rng.gen_range(5..15), rng.gen_range(50..300)),
-                Side::Sell => (1000 - rng.gen_range(5..15), rng.gen_range(50..300)),
+                Side::Buy => (
+                    dec!(1000) + Decimal::from(rng.gen_range(5..15)),
+                    Decimal::from(rng.gen_range(50..300))
+                ),
+                Side::Sell => (
+                    dec!(1000) - Decimal::from(rng.gen_range(5..15)),
+                    Decimal::from(rng.gen_range(50..300))
+                ),
             }
         } else {
             match side {
-                Side::Buy => (995 - rng.gen_range(0..5), rng.gen_range(50..150)),
-                Side::Sell => (1005 + rng.gen_range(0..5), rng.gen_range(50..150)),
+                Side::Buy => (
+                    dec!(995) - Decimal::from(rng.gen_range(0..5)),
+                    Decimal::from(rng.gen_range(50..150))
+                ),
+                Side::Sell => (
+                    dec!(1005) + Decimal::from(rng.gen_range(0..5)),
+                    Decimal::from(rng.gen_range(50..150))
+                ),
             }
         };
 
@@ -66,7 +80,7 @@ fn main() {
             "  place_order({side:?}, {price}, {quantity}, #{order_id})"
         );
 
-        let trades = book.place_order(side, price, quantity, order_id);
+        let trades = book.place_order(side, price, quantity, order_id).unwrap();
 
         if trades.is_empty() {
             println!("\n🔸 RETURN: Vec::new() (no matches)");
@@ -134,7 +148,7 @@ fn display_book_state(book: &OrderBook) {
     println!("└─────────────────────────────────────┘");
 
     if let (Some((bid_price, _)), Some((ask_price, _))) = (book.best_buy(), book.best_sell()) {
-        let spread = ask_price as i64 - bid_price as i64;
+        let spread = ask_price - bid_price;
         println!(
             "  Spread: {} | Book Depth: Buy={} Sell={}",
             spread,
