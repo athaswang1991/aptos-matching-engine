@@ -121,52 +121,72 @@ impl MarketSimulator {
 }
 
 struct LatencyMetrics {
-    history: VecDeque<f64>,
-    current: f64,
-    avg: f64,
-    p99: f64,
-    min: f64,
-    max: f64,
+    execution_latencies: VecDeque<Duration>,
+    datafeed_latencies: VecDeque<Duration>,
+    last_execution: Option<Duration>,
+    last_datafeed: Option<Duration>,
+    avg_execution: Duration,
+    avg_datafeed: Duration,
+    p99_execution: Duration,
+    p99_datafeed: Duration,
 }
 
 impl LatencyMetrics {
     fn new() -> Self {
         Self {
-            history: VecDeque::new(),
-            current: 0.0,
-            avg: 0.0,
-            p99: 0.0,
-            min: f64::MAX,
-            max: 0.0,
+            execution_latencies: VecDeque::new(),
+            datafeed_latencies: VecDeque::new(),
+            last_execution: None,
+            last_datafeed: None,
+            avg_execution: Duration::ZERO,
+            avg_datafeed: Duration::ZERO,
+            p99_execution: Duration::ZERO,
+            p99_datafeed: Duration::ZERO,
         }
     }
 
-    fn record(&mut self, latency: f64) {
-        self.current = latency;
-        self.history.push_back(latency);
+    fn record_execution(&mut self, latency: Duration) {
+        self.last_execution = Some(latency);
+        self.execution_latencies.push_back(latency);
 
-        if self.history.len() > LATENCY_HISTORY_SIZE {
-            self.history.pop_front();
+        if self.execution_latencies.len() > LATENCY_HISTORY_SIZE {
+            self.execution_latencies.pop_front();
         }
 
-        if !self.history.is_empty() {
-            self.min = self.history.iter().fold(f64::MAX, |a, &b| a.min(b));
-            self.max = self.history.iter().fold(0.0, |a, &b| a.max(b));
-            self.avg = self.history.iter().sum::<f64>() / self.history.len() as f64;
+        self.update_stats();
+    }
 
-            let mut sorted = self.history.iter().cloned().collect::<Vec<_>>();
-            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    fn record_datafeed(&mut self, latency: Duration) {
+        self.last_datafeed = Some(latency);
+        self.datafeed_latencies.push_back(latency);
+
+        if self.datafeed_latencies.len() > LATENCY_HISTORY_SIZE {
+            self.datafeed_latencies.pop_front();
+        }
+
+        self.update_stats();
+    }
+
+    fn update_stats(&mut self) {
+        if !self.execution_latencies.is_empty() {
+            let sum: Duration = self.execution_latencies.iter().sum();
+            self.avg_execution = sum / self.execution_latencies.len() as u32;
+
+            let mut sorted: Vec<Duration> = self.execution_latencies.iter().cloned().collect();
+            sorted.sort();
             let p99_idx = (sorted.len() as f64 * 0.99) as usize;
-            self.p99 = sorted.get(p99_idx).cloned().unwrap_or(0.0);
+            self.p99_execution = sorted.get(p99_idx).cloned().unwrap_or(Duration::ZERO);
         }
-    }
 
-    fn get_graph_data(&self) -> Vec<(f64, f64)> {
-        self.history
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| (i as f64, v))
-            .collect()
+        if !self.datafeed_latencies.is_empty() {
+            let sum: Duration = self.datafeed_latencies.iter().sum();
+            self.avg_datafeed = sum / self.datafeed_latencies.len() as u32;
+
+            let mut sorted: Vec<Duration> = self.datafeed_latencies.iter().cloned().collect();
+            sorted.sort();
+            let p99_idx = (sorted.len() as f64 * 0.99) as usize;
+            self.p99_datafeed = sorted.get(p99_idx).cloned().unwrap_or(Duration::ZERO);
+        }
     }
 }
 
@@ -267,8 +287,8 @@ impl App {
 
         match trades_result {
             Ok(trades) => {
-                let latency = start.elapsed().as_micros() as f64;
-                self.latency_metrics.record(latency);
+                let latency = start.elapsed();
+                self.latency_metrics.record_execution(latency);
 
                 if trades.is_empty() {
                     self.events.push_front((
@@ -632,13 +652,13 @@ fn draw_latency_metrics(f: &mut Frame, area: Rect, app: &App) {
             Span::raw("⚡ "),
             Span::styled("Performance", Style::default().add_modifier(Modifier::BOLD)),
         ]),
-        Line::from(format!("Current: {:.0}μs | Avg: {:.0}μs",
-            app.latency_metrics.current,
-            app.latency_metrics.avg
+        Line::from(format!("Execution: {:?} | Avg: {:?}",
+            app.latency_metrics.last_execution.unwrap_or(Duration::ZERO),
+            app.latency_metrics.avg_execution
         )),
-        Line::from(format!("P99: {:.0}μs | Max: {:.0}μs",
-            app.latency_metrics.p99,
-            app.latency_metrics.max
+        Line::from(format!("P99 Exec: {:?} | P99 Feed: {:?}",
+            app.latency_metrics.p99_execution,
+            app.latency_metrics.p99_datafeed
         )),
     ];
 
