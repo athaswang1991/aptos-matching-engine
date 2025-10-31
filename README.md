@@ -16,7 +16,7 @@ This is a **CLOB-based perpetual futures DEX** where all trading occurs through 
 
 ```bash
 # Run CLOB TUI visualization
-cargo run --bin imlob
+cargo run --bin aptos-matching-engine
 
 # Run perpetual futures DEX demo
 cargo run --bin perps_demo

@@ -1,7 +1,7 @@
 pub mod metrics;
 pub mod scenarios;
 
-use imlob::types::Side;
+use aptos_matching_engine::types::Side;
 use rand::Rng;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;

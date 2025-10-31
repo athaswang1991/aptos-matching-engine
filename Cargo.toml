@@ -1,8 +1,8 @@
 [package]
-name = "imlob"
+name = "aptos-matching-engine"
 version = "0.1.0"
 edition = "2021"
-default-run = "imlob"
+default-run = "aptos-matching-engine"
 
 [dependencies]
 crossterm = "0.27"

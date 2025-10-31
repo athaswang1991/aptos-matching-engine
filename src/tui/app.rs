@@ -1,7 +1,7 @@
 use crate::simulator::{LatencyMetrics, MarketSimulator};
 use crate::tui::stats::MarketStats;
-use imlob::orderbook::OrderBook;
-use imlob::types::{Side, Trade};
+use aptos_matching_engine::orderbook::OrderBook;
+use aptos_matching_engine::types::{Side, Trade};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::collections::VecDeque;

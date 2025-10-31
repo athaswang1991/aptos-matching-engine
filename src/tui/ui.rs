@@ -1,6 +1,6 @@
 use crate::simulator::scenarios::MarketScenario;
 use crate::tui::app::App;
-use imlob::types::Side;
+use aptos_matching_engine::types::Side;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},

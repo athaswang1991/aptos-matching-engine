@@ -30,7 +30,7 @@
 - No unused code or dead fields
 
 ### Binary Targets
-- **imlob**: TUI visualization for order book depth
+- **aptos-matching-engine**: TUI visualization for order book depth
 - **perps_demo**: Perpetual futures DEX demonstration
 - **demo**: Simple CLOB functionality showcase
 
